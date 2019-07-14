@@ -8,14 +8,14 @@ a logic level (5 volts) input on its gate.
 The display shows the Off/Run status and the PWM percentage, from 0 to 100. The display can also show the total run time,
 up to 9999 hours. You can turn the PWM on and off, and change the PWM percentage with the keypad buttons (S1 to S8).
 
-S1: Choose OFF mode.
-S2: Choose RUN mode.
-S3: Switch between status and run time display.
-S4: Subtract 10% from PWM.
-S5: Add 10% to PWM.
-S6: Hold 2 seconds to reset run time to zero.
-S7: Subtract 1% from PWM.
-S8: Add 1% to PWM.
+* S1: Choose OFF mode.
+* S2: Choose RUN mode.
+* S3: Switch between status and run time display.
+* S4: Subtract 10% from PWM.
+* S5: Add 10% to PWM.
+* S6: Hold 2 seconds to reset run time to zero.
+* S7: Subtract 1% from PWM.
+* S8: Add 1% to PWM.
 
 The configuration items are in pwm_pump.h in case you wish to change something.
 
