@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.h
  *  Date first: 06/30/2019
- *  Date last:  07/14/2019
+ *  Date last:  07/22/2019
  *
  *  Description: Control motor (pump) speed with PWM. CONFIGURATION FILE
  *
@@ -52,3 +52,9 @@
 
 /* Blink rate when RESET button is pressed, 25/100 second. */
 #define RESET_BLINK	25
+
+/* When in status display mode, button S6 sets a countdown to run the PWM
+ * for a specific time, then shut off. This can be useful for measuring the
+ * pump output, for example. The default is 60 seconds (times 10/second).
+ */
+#define COUNTDOWN 600

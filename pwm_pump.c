@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.c
  *  Date first: 06/30/2019
- *  Date last:  07/14/2019
+ *  Date last:  08/07/2019
  *
  *  Description: Control motor (pump) speed with PWM.
  *
@@ -29,11 +29,12 @@
 #include "pwm_pump.h"	/* configuration items */
 
 char clock_tenths;	/* 1/10 second 0-255 */
-char pwm_cur;
-char mode_cur;
-char last_led;
-char display;
+char pwm_cur;		/* current PWM percentage, 0-100 */
+char mode_cur;		/* RUN or OFF */
+char last_led;		/* last top LED shown */
+char display;		/* show status or run time? */
 long hour_frac;		/* thousandths of an hour */
+int countdown;		/* if set, number tenth-seconds before turn off */
 
 char key_time[8];	/* key hold down time, times 1/10 second */
 
@@ -80,6 +81,7 @@ int main() {
     clock_tenths = 0;
     clock_last = 0;
     cnt36 = 36;
+    countdown = 0;
     
     pwm_cur = 0;
     mode_cur = MODE_OFF;
@@ -112,6 +114,13 @@ int main() {
 	    hour_frac = 0;	/* reset the hour counter */
 	    tm1638_blink(0);
 	}
+	if (countdown) {
+	    countdown--;
+	    if (!countdown) {
+		mode_cur = MODE_OFF;
+		pwm_duty(PWM_C3, 0);
+	    }
+	}
 	key = getc();
 	if (key)
 	    do_key(key);
@@ -139,15 +148,25 @@ void show_status(void)
     clear();
     curs(0);
 
-    switch(mode_cur) {
-    case MODE_OFF :
-	puts("OFF  ");
-	break;
-    case MODE_RUN :
-	puts("RUN  ");
-	break;
-    default :
-	puts("ERR  ");
+    if (countdown) {	/* show remaining time before turning off */
+	bin16_dec_rlz(countdown, display);
+	display[1] = display[2];
+	display[2] = display[3];
+	display[3] = '.';
+	puts(display + 1);
+	puts("  ");
+    }
+    else {
+	switch(mode_cur) {
+	case MODE_OFF :
+	    puts("OFF  ");
+	    break;
+	case MODE_RUN :
+	    puts("RUN  ");
+	    break;
+	default :
+	    puts("ERR  ");
+	}
     }
     bin16_dec_rlz(pwm_cur, display);
     puts(display + 2);
@@ -199,6 +218,7 @@ void do_key(char key)
 
     switch(key) {
     case KEY_OFF :
+	countdown = 0;
 	mode_cur = MODE_OFF;
 	break;
     case KEY_RUN :
@@ -229,11 +249,13 @@ void do_key(char key)
 	    display = DISP_PCT;
 	break;
     case KEY_RESET :
-	if (display != DISP_TIME) { /* only allow reset key in time mode */
+	if (display != DISP_TIME) {	/* S6 starts ON countdown */
 	    key_time[index] = 0;
+	    countdown = COUNTDOWN;
+	    mode_cur = MODE_RUN;
 	    break;
 	}
-	tm1638_blink(RESET_BLINK);
+	tm1638_blink(RESET_BLINK);	/* S6 starts hours reset */
 	break;
     }
     /* set new PWM value, zero if MODE_OFF */

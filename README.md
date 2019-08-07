@@ -13,7 +13,8 @@ up to 9999 hours. You can turn the PWM on and off, and change the PWM percentage
 * S3: Switch between status and run time display.
 * S4: Subtract 10% from PWM.
 * S5: Add 10% to PWM.
-* S6: Hold 2 seconds to reset run time to zero.
+* S6: (status display) Run pump for 60 seconds, then stop.
+* S6: (hours display) Hold 2 seconds to reset run time to zero.
 * S7: Subtract 1% from PWM.
 * S8: Add 1% to PWM.
 
