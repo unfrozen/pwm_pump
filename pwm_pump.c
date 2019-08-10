@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.c
  *  Date first: 06/30/2019
- *  Date last:  08/07/2019
+ *  Date last:  08/10/2019
  *
  *  Description: Control motor (pump) speed with PWM.
  *
@@ -47,6 +47,7 @@ void timer_10(void);	/* 1/10 second timer call */
 
 void hours_load(void);	/* load hour count from EEPROM */
 void hours_save(void);	/* save hour count to EEPROM */
+void hours_update(void); /* update hours count, call every 1/10 second */
 
 #define putc    tm1638_putc
 #define puts    tm1638_puts
@@ -63,9 +64,7 @@ char key_index(char);		/* get index from key value 0-7 */
  */
 
 int main() {
-    int		hour_save;
     char	clock_last;
-    char 	cnt36;		/* count 36 tenths per 1/1000 hour */
     char	key, i;
     char	reset_idx;	/* index of hour reset key */
     
@@ -75,12 +74,10 @@ int main() {
     pwm_init(PWM_DUTY, PWM_C3);	/* using A3 (pin 10) for PWM */
 
     hours_load();		/* load hours from EEPROM */
-    hour_save = HOUR_SAVE;
     reset_idx = key_index(KEY_RESET);
     
     clock_tenths = 0;
     clock_last = 0;
-    cnt36 = 36;
     countdown = 0;
     
     pwm_cur = 0;
@@ -95,26 +92,18 @@ int main() {
 	    continue;
 	clock_last = clock_tenths;
 
-	if (mode_cur == MODE_RUN) {
-	    cnt36--;
-	    if (!cnt36) {	/* update the run time */
-		cnt36 = 36;
-		hour_frac++;	/* thousandths of an hour */
-	    }
-	}
-	hour_save--;
-	if (!hour_save) {
-	    hour_save = HOUR_SAVE;
-	    hours_save();
-	}
+	hours_update();		/* update hours count */
+	
 	for (i = 0; i < 8; i++)
 	    if (key_time[i])	/* key still held down */
 		key_time[i]++;	/* hold time, times 1/10 second */
+
+	/* check if HOURS RESET key is held down long enough for reset */
 	if (key_time[reset_idx] == RESET_TIME) {
 	    hour_frac = 0;	/* reset the hour counter */
 	    tm1638_blink(0);
 	}
-	if (countdown) {
+	if (countdown) {	/* is running for specific time? */
 	    countdown--;
 	    if (!countdown) {
 		mode_cur = MODE_OFF;
@@ -287,6 +276,30 @@ void do_key(char key)
 char key_index(char key)
 {
     return (key & 7);		/* we don't use a custom key map */
+}
+
+/******************************************************************************
+ *
+ *  Update hours count (call every 1/10 second)
+ */
+
+void hours_update(void)
+{
+    static char	cnt36 = 36;	/* count 36 tenths per 1/1000 hour */
+    static int save_count = HOUR_SAVE;
+
+    if (mode_cur == MODE_RUN) {
+	cnt36--;
+	if (!cnt36) {	/* update the run time */
+	    cnt36 = 36;
+	    hour_frac++;	/* thousandths of an hour */
+	}
+    }
+    save_count--;
+    if (!save_count) {
+	save_count = HOUR_SAVE;
+	hours_save();
+    }
 }
 
 /******************************************************************************
