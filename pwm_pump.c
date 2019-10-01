@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.c
  *  Date first: 06/30/2019
- *  Date last:  08/10/2019
+ *  Date last:  10/01/2019
  *
  *  Description: Control motor (pump) speed with PWM.
  *
@@ -42,6 +42,9 @@ void show_status(void);
 void show_time(void);
 void do_key(char);
 
+void local_init(void);	/* project-specific setup */
+void local_beep(char);	/* turn beeper on or off */
+
 void timer_ms(void);	/* millisecond timer call */
 void timer_10(void);	/* 1/10 second timer call */
 
@@ -69,6 +72,7 @@ int main() {
     char	reset_idx;	/* index of hour reset key */
     
     board_init(0);
+    local_init();
     clock_init(timer_ms, timer_10);
     tm1638_init(TM1638_8);	/* uses D1, D2, and D3 */
     pwm_init(PWM_DUTY, PWM_C3);	/* using A3 (pin 10) for PWM */
@@ -86,12 +90,16 @@ int main() {
     last_led = 0;
 
     clear();
-    
+    local_beep(1);
+    while(clock_last == clock_tenths);
+    while(getc());		/* discard any phoney keys */
+
     while (1) {
 	if (clock_last == clock_tenths)	/* update every 1/10 second */
 	    continue;
 	clock_last = clock_tenths;
-
+	local_beep(0);		/* beep is 1/10 second */
+	
 	hours_update();		/* update hours count */
 	
 	for (i = 0; i < 8; i++)
@@ -203,6 +211,7 @@ void do_key(char key)
 	    tm1638_blink(0);
 	return;
     }
+    local_beep(1);		/* 1/10 second, turns off in main() */
     key_time[index] = 1;
 
     switch(key) {
@@ -321,6 +330,7 @@ void hours_update(void)
  * pin 19 (D2) TM1638 CS/STROBE
  * pin 20 (D3) TM1638 DIN
  *
+ * pin  1 (D4) Beeper output
  * pin  2 (D5) UART TX (future debugging, not used now)
  * pin  3 (D6) UART RX (future debugging, not used now)
  *
@@ -387,4 +397,29 @@ void hours_save(void)
     ee_hours = &EEPROM;
     *ee_hours = hour_frac;
     eeprom_lock();
+}
+
+/******************************************************************************
+ *
+ *  Setup specific to this project
+ *  Enable beeper
+ */
+
+void local_init(void)
+{
+    BEEP_CSR = 0x06;	/* beeper 4khz */
+}
+
+/******************************************************************************
+ *
+ *  Turn beeper on or off
+ *  in:  zero = off, non-zero = on
+ */
+
+void local_beep(char on)
+{
+    if (on)
+	BEEP_CSR |= 0x20;
+    else
+	BEEP_CSR &= 0xdf;
 }
