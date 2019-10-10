@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.c
  *  Date first: 06/30/2019
- *  Date last:  10/01/2019
+ *  Date last:  10/10/2019
  *
  *  Description: Control motor (pump) speed with PWM.
  *
@@ -36,6 +36,9 @@ char display;		/* show status or run time? */
 long hour_frac;		/* thousandths of an hour */
 int countdown;		/* if set, number tenth-seconds before turn off */
 
+char cycle_on;
+char cycle_off;
+
 char key_time[8];	/* key hold down time, times 1/10 second */
 
 void show_status(void);
@@ -61,6 +64,17 @@ void hours_update(void); /* update hours count, call every 1/10 second */
 
 char key_index(char);		/* get index from key value 0-7 */
 
+/* Non-volatile configuration and data stored in EEPROM.
+ * Wrap with eeprom_unlock() and eeprom_lock() when writing.
+ */
+typedef struct {
+    long	hour_frac;	/* hour count, in thousandths */
+    char	cycle_on;	/* cycle on  time, in 0.1 seconds */
+    char	cycle_off;	/* cycle off time, in 0.1 seconds */
+} CONFIG;
+
+CONFIG *config;
+
 /******************************************************************************
  *
  *  Control the pump motor speed
@@ -77,6 +91,7 @@ int main() {
     tm1638_init(TM1638_8);	/* uses D1, D2, and D3 */
     pwm_init(PWM_DUTY, PWM_C3);	/* using A3 (pin 10) for PWM */
 
+    config = (CONFIG *)&EEPROM;
     hours_load();		/* load hours from EEPROM */
     reset_idx = key_index(KEY_RESET);
     
@@ -378,10 +393,7 @@ void timer_10(void)
 
 void hours_load(void)
 {
-    long	*ee_hours;
-
-    ee_hours = &EEPROM;
-    hour_frac = *ee_hours;
+    hour_frac = config->hour_frac;
 }
 
 /******************************************************************************
@@ -391,11 +403,8 @@ void hours_load(void)
 
 void hours_save(void)
 {
-    long	*ee_hours;
-
     eeprom_unlock();
-    ee_hours = &EEPROM;
-    *ee_hours = hour_frac;
+    config->hour_frac = hour_frac;
     eeprom_lock();
 }
 

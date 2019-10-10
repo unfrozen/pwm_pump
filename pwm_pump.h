@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.h
  *  Date first: 06/30/2019
- *  Date last:  07/22/2019
+ *  Date last:  10/06/2019
  *
  *  Description: Control motor (pump) speed with PWM. CONFIGURATION FILE
  *
@@ -21,6 +21,7 @@
 
 #define DISP_PCT	10	/* display mode and percentage */
 #define DISP_TIME	11	/* display run time */
+#define DISP_CYCLE	12	/* display cycle times */
 
 /* This is the interval for the hour counter auto-save to EEPROM.
  * The EEPROM has a stated endurance of 300,000 cycles, and would
@@ -38,9 +39,22 @@
 #define KEY_DISP	'2' /* change display */
 #define KEY_10D		'3' /* PWM down 10% */
 #define KEY_10U		'4' /* PWM up 10% */
-#define KEY_RESET	'5' /* reset hour counter */
+#define KEY_RESET	'5' /* reset hour counter or run 60 seconds */
 #define KEY_1D		'6' /* PWM down 1% */
-#define KEY_1U		'7' /* PWM up 10% */
+#define KEY_1U		'7' /* PWM up 1% */
+
+/* The DISP_CYCLE display shows the time on and the time off. These
+ * numbers allow pump rates lower than PWM can handle, at the price
+ * of losing smooth and continuous feed. The first number is the
+ * time ON, in tenths of a second, the second is the time off.
+ *
+ * Example: C 1.5 3.0 shows ON 1.5 seconds, OFF 3.0 seconds.
+ */
+
+#define KEY_CY_ON	'3' /* Adjust ON time */
+#define KEY_CY_OFF	'4' /* Adjust OFF */
+#define KEY_CY_1D	'6' /* Ajdust time down 0.1 second */
+#define KEY_CY_1U	'7' /* Adjust time up 0.1 second */
 
 /* The hour counter reset button behaves as follows:
  * On keypress, the display starts flashing.
