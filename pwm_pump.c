@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.c
  *  Date first: 06/30/2019
- *  Date last:  10/10/2019
+ *  Date last:  10/11/2019
  *
  *  Description: Control motor (pump) speed with PWM.
  *
@@ -17,6 +17,8 @@
  */
 
 #include "stm8s_header.h"
+
+#include <string.h>
 
 #include "lib_board.h"
 #include "lib_clock.h"
@@ -36,14 +38,20 @@ char display;		/* show status or run time? */
 long hour_frac;		/* thousandths of an hour */
 int countdown;		/* if set, number tenth-seconds before turn off */
 
-char cycle_on;
-char cycle_off;
+char cycle_on;		/* counter for ON time */
+char cycle_off;		/* counter for OFF time */
+char cycle_key;		/* key for on or off time to modify */
 
 char key_time[8];	/* key hold down time, times 1/10 second */
 
 void show_status(void);
 void show_time(void);
-void do_key(char);
+void show_cycle(void);
+
+void do_key(char);	/* handle key press */
+void key_pct(char);	/* keypress for PWM percent display */
+void key_hours(char);	/* keypress for hour time display */
+void key_cycle(char);	/* keypress for on/off cycle display */
 
 void local_init(void);	/* project-specific setup */
 void local_beep(char);	/* turn beeper on or off */
@@ -54,6 +62,8 @@ void timer_10(void);	/* 1/10 second timer call */
 void hours_load(void);	/* load hour count from EEPROM */
 void hours_save(void);	/* save hour count to EEPROM */
 void hours_update(void); /* update hours count, call every 1/10 second */
+
+void put_bin8_dp(char); /* output binary as 2 digit dec with point */
 
 #define putc    tm1638_putc
 #define puts    tm1638_puts
@@ -122,7 +132,8 @@ int main() {
 		key_time[i]++;	/* hold time, times 1/10 second */
 
 	/* check if HOURS RESET key is held down long enough for reset */
-	if (key_time[reset_idx] == RESET_TIME) {
+	if (display == DISP_TIME &&
+	    key_time[reset_idx] == RESET_TIME) {
 	    hour_frac = 0;	/* reset the hour counter */
 	    tm1638_blink(0);
 	}
@@ -143,6 +154,9 @@ int main() {
 	    break;
 	case DISP_TIME :
 	    show_time();
+	    break;
+	case DISP_CYCLE :
+	    show_cycle();
 	    break;
 	}
     }
@@ -186,7 +200,7 @@ void show_status(void)
 
 /******************************************************************************
  *
- *  Show run time
+ *  Show hours run time
  */
 
 void show_time(void)
@@ -210,6 +224,47 @@ void show_time(void)
 
 /******************************************************************************
  *
+ *  Show on/off cycle values
+ *  display example: "C 1.5 3.4 "
+ */
+
+void show_cycle(void)
+{
+    static char blink;
+
+    clear();
+    curs(0);
+    putc('C');
+
+    blink++;
+
+    curs(2);
+    if ((blink & 4) ||
+	cycle_key != KEY_CY_ON)
+	put_bin8_dp(config->cycle_on);
+    curs(5);
+    if ((blink & 4) ||
+	cycle_key != KEY_CY_OFF)
+	put_bin8_dp(config->cycle_off);
+}
+
+/******************************************************************************
+ *
+ *  Output 8 bit binary to two decimal char with decimal point
+ *  in: binary
+ */
+
+void put_bin8_dp(char bin)
+{
+    char	buf[3];
+    
+    bin8_dec2(bin, buf);
+    putc(buf[0] | 0x80);	/* add decimal point */
+    putc(buf[1]);
+}
+
+/******************************************************************************
+ *
  *  Handle key press or release
  *  in: key (bit-7 set on release)
  */
@@ -229,7 +284,7 @@ void do_key(char key)
     local_beep(1);		/* 1/10 second, turns off in main() */
     key_time[index] = 1;
 
-    switch(key) {
+    switch(key) {		/* On/off keys active in all modes */
     case KEY_OFF :
 	countdown = 0;
 	mode_cur = MODE_OFF;
@@ -237,38 +292,18 @@ void do_key(char key)
     case KEY_RUN :
 	mode_cur = MODE_RUN;
 	break;
-    case KEY_10U :
-	pwm_cur += 10;
-	if (pwm_cur > 100)
-	    pwm_cur = 100;
+    }
+    switch (display) {
+    case DISP_PCT :		/* PWM percent display mode */
+	cycle_key = 0;
+	key_pct(key);
 	break;
-    case KEY_10D :
-	if (pwm_cur < 10)
-	    pwm_cur = 10;
-	pwm_cur -= 10;
+    case DISP_TIME :		/* hour time display mode */
+	cycle_key = 0;
+	key_hours(key);
 	break;
-    case KEY_1U :
-	if (pwm_cur < 100)
-	    pwm_cur++;
-	break;
-    case KEY_1D :
-	if (pwm_cur)
-	    pwm_cur--;
-	break;
-    case KEY_DISP :
-	if (display == DISP_PCT)
-	    display =  DISP_TIME;
-	else
-	    display = DISP_PCT;
-	break;
-    case KEY_RESET :
-	if (display != DISP_TIME) {	/* S6 starts ON countdown */
-	    key_time[index] = 0;
-	    countdown = COUNTDOWN;
-	    mode_cur = MODE_RUN;
-	    break;
-	}
-	tm1638_blink(RESET_BLINK);	/* S6 starts hours reset */
+    case DISP_CYCLE :		/* on/off cycle display mode */
+	key_cycle(key);
 	break;
     }
     /* set new PWM value, zero if MODE_OFF */
@@ -288,6 +323,116 @@ void do_key(char key)
 	setled(last_led, 1);
     
     hours_save();		/* save hours on any keypress */
+}
+
+/******************************************************************************
+ *
+ * Handle key press for PWM percent display mode
+ * in: key
+ */
+
+void key_pct(char key)
+{
+    switch (key) {
+    case KEY_10U :		/* PWM +10 */
+	pwm_cur += 10;
+	if (pwm_cur > 100)
+	    pwm_cur = 100;
+	break;
+    case KEY_10D :		/* PWM -10 */
+	if (pwm_cur < 10)
+	    pwm_cur = 10;
+	pwm_cur -= 10;
+	break;
+    case KEY_1U :		/* PWM +1 */
+	if (pwm_cur < 100)
+	    pwm_cur++;
+	break;
+    case KEY_1D :		/* PWM -1 */
+	if (pwm_cur)
+	    pwm_cur--;
+	break;
+    case KEY_DISP :		/* switch to hour time display mode */
+	display = DISP_TIME;
+	break;
+    case KEY_RESET :		/* start timed "on" operation */
+	countdown = COUNTDOWN;
+	mode_cur = MODE_RUN;
+	break;
+    }	
+}
+
+/******************************************************************************
+ *
+ * Handle key press for hour time display mode
+ * in: key
+ */
+
+void key_hours(char key)
+{
+    switch (key) {
+    case KEY_DISP :		/* switch to on/off cycle display mode */
+	display = DISP_CYCLE;
+	break;
+    case KEY_RESET :		/* reset hour counter */
+	tm1638_blink(RESET_BLINK);	/* S6 starts hours reset */
+    }	
+}
+
+/******************************************************************************
+ *
+ * Handle key press for on/off cycle display mode
+ * in: key
+ */
+
+void key_cycle(char key)
+{
+    signed char	modval, newval;
+
+    modval = 0;
+    switch (key) {
+    case KEY_DISP :		/* switch to PWM percent display mode */
+	display = DISP_PCT;
+	break;
+    case KEY_CY_ON :		/* adjust ON time */
+	if (cycle_key == KEY_CY_ON)
+	    cycle_key = 0;
+	else
+	    cycle_key = KEY_CY_ON;
+	break;
+    case KEY_CY_OFF :		/* adjust OFF time */
+	if (cycle_key == KEY_CY_OFF)
+	    cycle_key = 0;
+	else
+	    cycle_key = KEY_CY_OFF;
+	break;
+    case KEY_CY_1D :		/* adjust time down 0.1 second */
+	modval = -1;
+	break;
+    case KEY_CY_1U :		/* adjust time up 0.1 second */
+	modval = 1;
+	break;
+    }	
+    if (!modval)
+	return;
+    switch(cycle_key) {
+    case KEY_CY_ON :
+	newval = config->cycle_on + modval;
+	if (newval < 0 || newval > CYCLE_MAX)
+	    break;
+	eeprom_unlock();
+	config->cycle_on = newval;
+	eeprom_lock();
+	break;
+    case KEY_CY_OFF :
+	newval = config->cycle_off + modval;
+	if (newval < 0 || newval > CYCLE_MAX)
+	    break;
+	eeprom_unlock();
+	config->cycle_off = newval;
+	eeprom_lock();
+	break;
+    }
 }
 
 /******************************************************************************

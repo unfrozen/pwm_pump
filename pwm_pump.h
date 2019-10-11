@@ -56,6 +56,8 @@
 #define KEY_CY_1D	'6' /* Ajdust time down 0.1 second */
 #define KEY_CY_1U	'7' /* Adjust time up 0.1 second */
 
+#define CYCLE_MAX	99 /* Maximum on or off time is 9.9 seconds */
+
 /* The hour counter reset button behaves as follows:
  * On keypress, the display starts flashing.
  * After key held down long enough, the hour counter resets to zero.
