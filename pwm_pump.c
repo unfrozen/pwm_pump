@@ -18,8 +18,6 @@
 
 #include "stm8s_header.h"
 
-#include <string.h>
-
 #include "lib_board.h"
 #include "lib_clock.h"
 #include "lib_eeprom.h"
@@ -52,6 +50,9 @@ void do_key(char);	/* handle key press */
 void key_pct(char);	/* keypress for PWM percent display */
 void key_hours(char);	/* keypress for hour time display */
 void key_cycle(char);	/* keypress for on/off cycle display */
+
+void cycle_on_off(void); /* handle on/off cycles */
+char output_active(void); /* should output be active? */
 
 void local_init(void);	/* project-specific setup */
 void local_beep(char);	/* turn beeper on or off */
@@ -126,6 +127,7 @@ int main() {
 	local_beep(0);		/* beep is 1/10 second */
 	
 	hours_update();		/* update hours count */
+	cycle_on_off();		/* handle on/off cycles */
 	
 	for (i = 0; i < 8; i++)
 	    if (key_time[i])	/* key still held down */
@@ -288,9 +290,12 @@ void do_key(char key)
     case KEY_OFF :
 	countdown = 0;
 	mode_cur = MODE_OFF;
+	pwm_duty(PWM_C3, 0);
 	break;
     case KEY_RUN :
 	mode_cur = MODE_RUN;
+	cycle_on = config->cycle_on;
+	cycle_off = 0;
 	break;
     }
     switch (display) {
@@ -306,12 +311,11 @@ void do_key(char key)
 	key_cycle(key);
 	break;
     }
-    /* set new PWM value, zero if MODE_OFF */
+    /* set new PWM value, if active */
     
     set_pwm = pwm_cur;
-    if (mode_cur == MODE_OFF)
-	set_pwm = 0;
-    pwm_duty(PWM_C3, set_pwm * 2);
+    if (output_active())
+	pwm_duty(PWM_C3, set_pwm * 2);
 
     /* show rough PWM value with LED on top of display */
     
@@ -358,6 +362,7 @@ void key_pct(char key)
     case KEY_RESET :		/* start timed "on" operation */
 	countdown = COUNTDOWN;
 	mode_cur = MODE_RUN;
+	cycle_on = config->cycle_on;
 	break;
     }	
 }
@@ -437,6 +442,33 @@ void key_cycle(char key)
 
 /******************************************************************************
  *
+ *  Handle on/off cycles, if enabled
+ */
+
+void cycle_on_off(void)
+{
+    if (mode_cur != MODE_RUN)
+	return;
+    if (!config->cycle_on ||
+	!config->cycle_off)
+	return;
+    if (cycle_on) {
+	cycle_on--;
+	if (cycle_on)
+	    return;
+	cycle_off = config->cycle_off;
+	pwm_duty(PWM_C3, 0);
+	return;
+    }
+    cycle_off--;
+    if (cycle_off)
+	return;
+    cycle_on = config->cycle_on;
+    pwm_duty(PWM_C3, pwm_cur * 2);
+}
+
+/******************************************************************************
+ *
  *  Get index from key value
  *  in: key value
  * out: key index
@@ -457,7 +489,7 @@ void hours_update(void)
     static char	cnt36 = 36;	/* count 36 tenths per 1/1000 hour */
     static int save_count = HOUR_SAVE;
 
-    if (mode_cur == MODE_RUN) {
+    if (output_active()) {
 	cnt36--;
 	if (!cnt36) {	/* update the run time */
 	    cnt36 = 36;
@@ -469,6 +501,24 @@ void hours_update(void)
 	save_count = HOUR_SAVE;
 	hours_save();
     }
+}
+
+/******************************************************************************
+ *
+ *  Should the output be active?
+ *  out: zero = no
+ */
+
+char output_active(void)
+{
+    if (mode_cur != MODE_RUN)
+	return 0;
+    if (cycle_on)
+	return 1;		/* cycling enabled, and currently on */
+    if (!config->cycle_on ||
+	!config->cycle_off)
+	return 1;		/* cycling not enabled */
+    return 0;			/* cycling enabled, currently off */
 }
 
 /******************************************************************************

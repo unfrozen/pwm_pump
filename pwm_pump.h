@@ -47,6 +47,8 @@
  * numbers allow pump rates lower than PWM can handle, at the price
  * of losing smooth and continuous feed. The first number is the
  * time ON, in tenths of a second, the second is the time off.
+ * The feature is enabled when both times are non-zero. Hours are
+ * only counted during the cycle ON time.
  *
  * Example: C 1.5 3.0 shows ON 1.5 seconds, OFF 3.0 seconds.
  */
