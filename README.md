@@ -5,8 +5,12 @@ This project uses the STM8S103P3 on a cheap Ebay board and a TM1638 display and 
 pin A3 (can be changed to D4). The power circuit (not included here) includes a IRLZ24 MOSFET transistor, which accepts
 a logic level (5 volts) input on its gate.
 
-The display shows the Off/Run status and the PWM percentage, from 0 to 100. The display can also show the total run time,
-up to 9999 hours. You can turn the PWM on and off, and change the PWM percentage with the keypad buttons (S1 to S8).
+You can see photos of the circuit and the displays in the WIKI section.
+
+There is a main display that shows the Off/Run status and the PWM percentage,
+from 0 to 100. There is another display that show the total run time,
+up to 9999 hours. A third display shows the ON and OFF cycle times. You
+can use the cycle feature if your motor won't function at low PWM values.
 
 * S1: Choose OFF mode.
 * S2: Choose RUN mode.
