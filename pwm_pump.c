@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.c
  *  Date first: 06/30/2019
- *  Date last:  10/11/2019
+ *  Date last:  10/16/2019
  *
  *  Description: Control motor (pump) speed with PWM.
  *
@@ -393,6 +393,7 @@ void key_hours(char key)
 void key_cycle(char key)
 {
     signed char	modval, newval;
+    char	*ee_val;
 
     modval = 0;
     switch (key) {
@@ -417,27 +418,30 @@ void key_cycle(char key)
     case KEY_CY_1U :		/* adjust time up 0.1 second */
 	modval = 1;
 	break;
+    case KEY_CY_10 :		/* adjust time up 1.0 second (rolls over) */
+	modval = 10;
+	break;
     }	
     if (!modval)
 	return;
     switch(cycle_key) {
     case KEY_CY_ON :
-	newval = config->cycle_on + modval;
-	if (newval < 0 || newval > CYCLE_MAX)
-	    break;
-	eeprom_unlock();
-	config->cycle_on = newval;
-	eeprom_lock();
+	ee_val = &config->cycle_on;
 	break;
     case KEY_CY_OFF :
-	newval = config->cycle_off + modval;
-	if (newval < 0 || newval > CYCLE_MAX)
-	    break;
-	eeprom_unlock();
-	config->cycle_off = newval;
-	eeprom_lock();
+	ee_val = &config->cycle_off;
 	break;
+    default :
+	return;
     }
+    newval = *ee_val + modval;
+    if (newval < 0)
+	newval += CYCLE_MAX + 1;
+    if (newval > CYCLE_MAX)
+	newval -= CYCLE_MAX + 1;
+    eeprom_unlock();
+    *ee_val = newval;
+    eeprom_lock();
 }
 
 /******************************************************************************

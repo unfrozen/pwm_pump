@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.h
  *  Date first: 06/30/2019
- *  Date last:  10/06/2019
+ *  Date last:  10/16/2019
  *
  *  Description: Control motor (pump) speed with PWM. CONFIGURATION FILE
  *
@@ -55,6 +55,7 @@
 
 #define KEY_CY_ON	'3' /* Adjust ON time */
 #define KEY_CY_OFF	'4' /* Adjust OFF */
+#define KEY_CY_10	'5' /* Adjust time up 1.0 second (rolls over) */
 #define KEY_CY_1D	'6' /* Ajdust time down 0.1 second */
 #define KEY_CY_1U	'7' /* Adjust time up 0.1 second */
 
