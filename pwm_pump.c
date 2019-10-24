@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.c
  *  Date first: 06/30/2019
- *  Date last:  10/16/2019
+ *  Date last:  10/24/2019
  *
  *  Description: Control motor (pump) speed with PWM.
  *
@@ -54,6 +54,9 @@ void key_cycle(char);	/* keypress for on/off cycle display */
 void cycle_on_off(void); /* handle on/off cycles */
 char output_active(void); /* should output be active? */
 
+void mode_set(char);	/* set new operating mode */
+void power_alarm(void); /* power failure alarm, if enabled */
+
 void local_init(void);	/* project-specific setup */
 void local_beep(char);	/* turn beeper on or off */
 
@@ -72,6 +75,7 @@ void put_bin8_dp(char); /* output binary as 2 digit dec with point */
 #define clear   tm1638_clear
 #define getc    tm1638_getc
 #define setled  tm1638_setled
+#define blink   tm1638_blink
 
 char key_index(char);		/* get index from key value 0-7 */
 
@@ -82,6 +86,7 @@ typedef struct {
     long	hour_frac;	/* hour count, in thousandths */
     char	cycle_on;	/* cycle on  time, in 0.1 seconds */
     char	cycle_off;	/* cycle off time, in 0.1 seconds */
+    char	mode_cur;	/* last known mode, for power fail alarm */
 } CONFIG;
 
 CONFIG *config;
@@ -111,7 +116,6 @@ int main() {
     countdown = 0;
     
     pwm_cur = 0;
-    mode_cur = MODE_OFF;
     display = DISP_PCT;
     last_led = 0;
 
@@ -119,6 +123,12 @@ int main() {
     local_beep(1);
     while(clock_last == clock_tenths);
     while(getc());		/* discard any phoney keys */
+
+#ifdef POWER_FAIL_ALARM
+    if (config->mode_cur != MODE_OFF)
+	power_alarm();
+#endif
+    mode_set(MODE_OFF);
 
     while (1) {
 	if (clock_last == clock_tenths)	/* update every 1/10 second */
@@ -142,7 +152,7 @@ int main() {
 	if (countdown) {	/* is running for specific time? */
 	    countdown--;
 	    if (!countdown) {
-		mode_cur = MODE_OFF;
+		mode_set(MODE_OFF);
 		pwm_duty(PWM_C3, 0);
 	    }
 	}
@@ -289,11 +299,11 @@ void do_key(char key)
     switch(key) {		/* On/off keys active in all modes */
     case KEY_OFF :
 	countdown = 0;
-	mode_cur = MODE_OFF;
+	mode_set(MODE_OFF);
 	pwm_duty(PWM_C3, 0);
 	break;
     case KEY_RUN :
-	mode_cur = MODE_RUN;
+	mode_set(MODE_RUN);
 	cycle_on = config->cycle_on;
 	cycle_off = 0;
 	break;
@@ -361,7 +371,7 @@ void key_pct(char key)
 	break;
     case KEY_RESET :		/* start timed "on" operation */
 	countdown = COUNTDOWN;
-	mode_cur = MODE_RUN;
+	mode_set(MODE_RUN);
 	cycle_on = config->cycle_on;
 	break;
     }	
@@ -523,6 +533,49 @@ char output_active(void)
 	!config->cycle_off)
 	return 1;		/* cycling not enabled */
     return 0;			/* cycling enabled, currently off */
+}
+
+/******************************************************************************
+ *
+ *  Set new mode, save copy in EEPROM for power fail alarm
+ */
+
+void mode_set(char mode)
+{
+    mode_cur = mode;
+#ifdef POWER_FAIL_ALARM
+    if (config->mode_cur == mode_cur)
+	return;
+    eeprom_unlock();
+    config->mode_cur = mode_cur;
+    eeprom_lock();
+#endif
+}
+
+/******************************************************************************
+ *
+ *  Do power failure alarm until a key is pressed
+ */
+
+void power_alarm(void)
+{
+    char	clock_last;
+    
+    clear();
+    puts("P FAILED");
+    blink(40);
+
+    clock_last = clock_tenths;
+    while (1) {
+	if (clock_last == clock_tenths)
+	    continue;
+	clock_last = clock_tenths;
+	if (getc())
+	    break;
+	local_beep(clock_last & 1);
+    }
+    blink(0);
+    local_beep(0);
 }
 
 /******************************************************************************

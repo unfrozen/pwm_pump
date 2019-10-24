@@ -1,6 +1,7 @@
 SDCC = sdcc -mstm8 -I../libs -L../libs -DSTM8103
 NAME = pwm_pump
 LIBS = lib_stm8.lib
+HDRS = $(NAME).h
 
 all: $(NAME).ihx
 

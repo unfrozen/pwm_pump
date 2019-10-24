@@ -1,7 +1,7 @@
 /*
  *  File name:  pwm_pump.h
  *  Date first: 06/30/2019
- *  Date last:  10/16/2019
+ *  Date last:  10/24/2019
  *
  *  Description: Control motor (pump) speed with PWM. CONFIGURATION FILE
  *
@@ -77,3 +77,9 @@
  * pump output, for example. The default is 60 seconds (times 10/second).
  */
 #define COUNTDOWN 600
+
+/* If the power fails while in "RUN" mode, you can have the device alarm
+ * until you press a button. The alarm will be beeping and flashing display.
+ * Comment out if you do not want the alarm (quiet reset).
+ */
+#define POWER_FAIL_ALARM
