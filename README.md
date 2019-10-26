@@ -29,5 +29,8 @@ The Makefile expects stm8_libs and header files in ../libs, change for your layo
 
 Feel free to use this as a working prototype to develop your own application.
 
+I have added the compiled image so you can just program the STM8S103 if
+you would like to try it before setting up the compiler and libraries.
+
 You may contact the author at: richard@hodges.org
 I am available for embedded projects, large or small.
